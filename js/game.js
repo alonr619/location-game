@@ -79,33 +79,63 @@ function renderGameGrid(gameState, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  container.innerHTML = '';
-  
-  for (let y = 0; y < GAME_CONFIG.gridSize; y++) {
-    for (let x = 0; x < GAME_CONFIG.gridSize; x++) {
-      const cell = document.createElement('div');
-      cell.className = 'grid-cell';
-      
-      const isPlayer = gameState.playerPosition.x === x && gameState.playerPosition.y === y;
-      const cellContent = gameState.grid[y][x];
-      
-      if (isPlayer) {
-        cell.classList.add('player');
-        cell.textContent = '👤';
-      } else if (cellContent === 'T') {
-        cell.classList.add('trap');
-        cell.textContent = '💣';
-      } else if (cellContent === 'F') {
-        cell.classList.add('flag');
-        cell.textContent = '🚩';
-      } else {
-        cell.classList.add('empty');
-        cell.textContent = '';
+  // Only re-render if the grid doesn't exist or player position changed
+  const existingGrid = container.querySelector('.game-grid-inner');
+  if (!existingGrid) {
+    // Initial render
+    container.innerHTML = '<div class="game-grid-inner"></div>';
+    const gridInner = container.querySelector('.game-grid-inner');
+    
+    for (let y = 0; y < GAME_CONFIG.gridSize; y++) {
+      for (let x = 0; x < GAME_CONFIG.gridSize; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+        
+        const cellContent = gameState.grid[y][x];
+        
+        if (cellContent === 'T') {
+          cell.classList.add('trap');
+          cell.textContent = '💣';
+        } else if (cellContent === 'F') {
+          cell.classList.add('flag');
+          cell.textContent = '🚩';
+        } else {
+          cell.classList.add('empty');
+          cell.textContent = '';
+        }
+        
+        gridInner.appendChild(cell);
       }
-      
-      container.appendChild(cell);
     }
   }
+  
+  // Update only the player position (much faster than full re-render)
+  const cells = container.querySelectorAll('.grid-cell');
+  cells.forEach(cell => {
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
+    const isPlayer = gameState.playerPosition.x === x && gameState.playerPosition.y === y;
+    
+    // Remove previous player class
+    cell.classList.remove('player');
+    
+    if (isPlayer) {
+      cell.classList.add('player');
+      cell.textContent = '👤';
+    } else {
+      // Restore original content
+      const cellContent = gameState.grid[y][x];
+      if (cellContent === 'T') {
+        cell.textContent = '💣';
+      } else if (cellContent === 'F') {
+        cell.textContent = '🚩';
+      } else {
+        cell.textContent = '';
+      }
+    }
+  });
 }
 
 // Update game info display

@@ -171,6 +171,9 @@
             updateStatus('Location tracking stopped', 'status-disconnected');
         }
         
+        let lastGridPos = null;
+        let updateThrottle = null;
+        
         async function handleLocationUpdate(position) {
             try {
                 // Update UI with current location
@@ -182,23 +185,32 @@
                 const gridPos = coordsToGrid(position.latitude, position.longitude);
                 document.getElementById('gridPosition').textContent = `(${gridPos.x}, ${gridPos.y})`;
                 
-                // Update database
-                const { data, error } = await updateUserLocation(
-                    currentUser.id,
-                    position.latitude,
-                    position.longitude,
-                    gridPos.x,
-                    gridPos.y
-                );
-                
-                if (error) {
-                    console.error('Database update error:', error);
-                    updateStatus('Database update failed', 'status-disconnected');
-                } else {
-                    updateCount++;
-                    document.getElementById('updateCount').textContent = updateCount;
-                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-                    updateStatus('Location tracking active', 'status-connected');
+                // Only update database if grid position actually changed
+                if (!lastGridPos || lastGridPos.x !== gridPos.x || lastGridPos.y !== gridPos.y) {
+                    // Throttle database updates to avoid spam
+                    if (updateThrottle) clearTimeout(updateThrottle);
+                    
+                    updateThrottle = setTimeout(async () => {
+                        const { data, error } = await updateUserLocation(
+                            currentUser.id,
+                            position.latitude,
+                            position.longitude,
+                            gridPos.x,
+                            gridPos.y
+                        );
+                        
+                        if (error) {
+                            console.error('Database update error:', error);
+                            updateStatus('Database update failed', 'status-disconnected');
+                        } else {
+                            updateCount++;
+                            document.getElementById('updateCount').textContent = updateCount;
+                            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                            updateStatus('Location tracking active', 'status-connected');
+                        }
+                    }, 100); // 100ms throttle for database updates
+                    
+                    lastGridPos = gridPos;
                 }
                 
             } catch (err) {

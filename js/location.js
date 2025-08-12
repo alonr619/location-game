@@ -63,11 +63,11 @@ function watchLocation(callback) {
       console.error('Error watching location:', error);
       callback(null, error);
     },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: GAME_CONFIG.updateInterval
-    }
+          {
+        enableHighAccuracy: true,
+        timeout: 5000, // Reduced timeout for faster response
+        maximumAge: 0 // Always get fresh location data
+      }
   );
 }
 

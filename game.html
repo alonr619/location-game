@@ -195,15 +195,9 @@
         }
         
         function startRealTimeUpdates() {
-            // Set up regular polling every 500ms
-            updateInterval = setInterval(async () => {
-                await refreshLocationData();
-            }, GAME_CONFIG.updateInterval);
-            
-            // Set up real-time subscriptions
+            // Set up real-time subscriptions for instant updates
             try {
                 const locationSub = subscribeToLocationUpdates(currentUser.id, async (payload) => {
-                    console.log('Location update received:', payload);
                     if (payload.new) {
                         updateLocationDisplay(payload.new);
                         
@@ -234,6 +228,11 @@
                 subscriptions.push(locationSub);
             } catch (err) {
                 console.error('Subscription setup error:', err);
+                // Fallback to polling if subscriptions fail
+                console.log('Falling back to polling updates');
+                updateInterval = setInterval(async () => {
+                    await refreshLocationData();
+                }, GAME_CONFIG.updateInterval);
             }
         }
         

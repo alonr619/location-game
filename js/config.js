@@ -8,7 +8,7 @@ const SUPABASE_CONFIG = {
 // Game Configuration
 const GAME_CONFIG = {
   gridSize: 5,
-  updateInterval: 500, // milliseconds
+  updateInterval: 100, // milliseconds - much faster updates!
   // Define the real-world bounds of your 5x5 grid
   // Example values - you'll need to adjust these based on your actual play area
   bounds: {
