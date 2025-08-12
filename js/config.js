@@ -12,10 +12,10 @@ const GAME_CONFIG = {
   // Define the real-world bounds of your 5x5 grid
   // Example values - you'll need to adjust these based on your actual play area
   bounds: {
-    north: 37.782269 + 0.00008,  // San Francisco latitude + small offset
-    south: 37.782269 - 0.00008,
-    east: -122.391269 + 0.00008, // San Francisco longitude + small offset
-    west: -122.391269 - 0.00008
+    north: 37.782269 + 0.0002,  // San Francisco latitude + small offset
+    south: 37.782269 - 0.0002,
+    east: -122.391269 + 0.0002, // San Francisco longitude + small offset
+    west: -122.391269 - 0.0002
   }
 };
 
