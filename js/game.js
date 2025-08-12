@@ -24,7 +24,6 @@ class GameState {
     grid[3][2] = 'T';
     grid[3][3] = 'T';
     grid[2][3] = 'T';
-    grid[1][1] = 'T';
     grid[0][3] = 'T';
     grid[0][4] = 'T';
     
