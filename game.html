@@ -38,10 +38,8 @@
                         <h3>📊 Game Stats</h3>
                         <div style="margin: 15px 0;">
                             <div class="score">Score: <span id="score">0</span></div>
-                            <div class="level">Level: <span id="level">1</span></div>
                         </div>
                         <div style="margin: 10px 0; font-size: 0.9rem;">
-                            <div>Last Update: <span id="lastUpdate">--</span></div>
                             <div>Position: <span id="currentPosition">--</span></div>
                         </div>
                     </div>
@@ -93,11 +91,13 @@
     
     <script>
         let currentUser = null;
-        let gameState = new GameState();
+        let gameState = null;
         let updateInterval = null;
         let subscriptions = [];
         
         document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize game state after DOM is loaded
+            gameState = new GameState();
             initSupabase();
             
             // Check authentication
@@ -135,15 +135,7 @@
             updateStatus('Loading game data...', 'status-updating');
             
             try {
-                // Load existing game state
-                const { data: gameData, error: gameError } = await getUserGame(currentUser.id);
-                if (gameData && gameData.game_state) {
-                    gameState.fromJSON(gameData.game_state);
-                } else {
-                    // Initialize new game
-                    await updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
-                }
-                
+                // Game state is purely local - no need to load from database
                 // Load current location
                 await refreshLocationData();
                 
@@ -168,16 +160,24 @@
                     const newGridX = locationData.grid_x;
                     const newGridY = locationData.grid_y;
                     
-                    if (gameState.playerPosition.x !== newGridX || gameState.playerPosition.y !== newGridY) {
-                        gameState.updatePlayerPosition(newGridX, newGridY);
-                        
-                        // Save updated game state
-                        await updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
-                        
-                        // Re-render
-                        renderGameGrid(gameState, 'gameGrid');
-                        updateGameInfo(gameState);
-                    }
+                                            if (gameState.playerPosition.x !== newGridX || gameState.playerPosition.y !== newGridY) {
+                            const result = gameState.updatePlayerPosition(newGridX, newGridY);
+                            
+                            if (result.success) {
+                                // Re-render
+                                renderGameGrid(gameState, 'gameGrid');
+                                updateGameInfo(gameState);
+                            } else {
+                                // Game event occurred
+                                if (result.event === 'trap') {
+                                    showGameOver(gameState);
+                                    stopRealTimeUpdates();
+                                } else if (result.event === 'flag') {
+                                    showVictory(gameState);
+                                    stopRealTimeUpdates();
+                                }
+                            }
+                        }
                 }
             } catch (err) {
                 console.error('Location refresh error:', err);
@@ -202,7 +202,7 @@
             
             // Set up real-time subscriptions
             try {
-                const locationSub = subscribeToLocationUpdates(currentUser.id, (payload) => {
+                const locationSub = subscribeToLocationUpdates(currentUser.id, async (payload) => {
                     console.log('Location update received:', payload);
                     if (payload.new) {
                         updateLocationDisplay(payload.new);
@@ -212,10 +212,21 @@
                         const newGridY = payload.new.grid_y;
                         
                         if (gameState.playerPosition.x !== newGridX || gameState.playerPosition.y !== newGridY) {
-                            gameState.updatePlayerPosition(newGridX, newGridY);
-                            updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
-                            renderGameGrid(gameState, 'gameGrid');
-                            updateGameInfo(gameState);
+                            const result = gameState.updatePlayerPosition(newGridX, newGridY);
+                            
+                            if (result.success) {
+                                renderGameGrid(gameState, 'gameGrid');
+                                updateGameInfo(gameState);
+                            } else {
+                                // Game event occurred
+                                if (result.event === 'trap') {
+                                    showGameOver(gameState);
+                                    stopRealTimeUpdates();
+                                } else if (result.event === 'flag') {
+                                    showVictory(gameState);
+                                    stopRealTimeUpdates();
+                                }
+                            }
                         }
                     }
                 });
@@ -262,6 +273,25 @@
             } catch (err) {
                 console.error('Sign out error:', err);
             }
+        }
+        
+        // Restart the game
+        function restartGame(gameState) {
+            // Remove overlay screens
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const victoryScreen = document.getElementById('victoryScreen');
+            if (gameOverScreen) gameOverScreen.remove();
+            if (victoryScreen) victoryScreen.remove();
+            
+            // Reset game state
+            gameState.resetGame();
+            
+            // Re-render
+            renderGameGrid(gameState, 'gameGrid');
+            updateGameInfo(gameState);
+            
+            // Resume real-time updates
+            startRealTimeUpdates();
         }
         
         // Clean up when page unloads
