@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game - Location Game</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <div class="desktop-container">
+        <h1>🎮 Game View</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 1rem;">
+            Watch your character move in real-time as you walk around!
+        </p>
+        
+        <div id="authSection">
+            <div class="error" id="authError" style="display: none;"></div>
+            <p style="text-align: center;">
+                <a href="login.html" class="btn btn-primary">Please Login First</a>
+            </p>
+        </div>
+        
+        <div id="gameSection" style="display: none;">
+            <div id="status" class="status status-disconnected">
+                Connecting...
+            </div>
+            
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+                <!-- Game Grid -->
+                <div style="flex: 1; min-width: 300px;">
+                    <h3 style="text-align: center;">5x5 Game Grid</h3>
+                    <div id="gameGrid" class="game-grid"></div>
+                </div>
+                
+                <!-- Game Info -->
+                <div style="flex: 1; min-width: 300px;">
+                    <div class="game-info">
+                        <h3>📊 Game Stats</h3>
+                        <div style="margin: 15px 0;">
+                            <div class="score">Score: <span id="score">0</span></div>
+                            <div class="level">Level: <span id="level">1</span></div>
+                        </div>
+                        <div style="margin: 10px 0; font-size: 0.9rem;">
+                            <div>Last Update: <span id="lastUpdate">--</span></div>
+                            <div>Position: <span id="currentPosition">--</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="location-info">
+                        <h4>📍 Player Location</h4>
+                        <div class="location-item">
+                            <span>Latitude:</span>
+                            <span id="latitude">--</span>
+                        </div>
+                        <div class="location-item">
+                            <span>Longitude:</span>
+                            <span id="longitude">--</span>
+                        </div>
+                        <div class="location-item">
+                            <span>Grid Position:</span>
+                            <span id="gridPosition">--</span>
+                        </div>
+                        <div class="location-item">
+                            <span>Last Seen:</span>
+                            <span id="lastSeen">--</span>
+                        </div>
+                    </div>
+                    
+                    <button id="refreshBtn" class="btn btn-primary btn-full" style="margin: 10px 0;">
+                        🔄 Refresh Now
+                    </button>
+                    
+                    <button id="signOutBtn" class="btn btn-secondary btn-full">
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="../index.html">← Back to home</a>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/location.js"></script>
+    <script src="../js/game.js"></script>
+    
+    <script>
+        let currentUser = null;
+        let gameState = new GameState();
+        let updateInterval = null;
+        let subscriptions = [];
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            initSupabase();
+            
+            // Check authentication
+            try {
+                const { user, error } = await getCurrentUser();
+                if (user) {
+                    currentUser = user;
+                    await initializeGame();
+                    showGameSection();
+                } else {
+                    showAuthSection();
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+                showAuthSection();
+            }
+            
+            // Set up event listeners
+            document.getElementById('refreshBtn').addEventListener('click', refreshGameData);
+            document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+        });
+        
+        function showAuthSection() {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('gameSection').style.display = 'none';
+        }
+        
+        function showGameSection() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('gameSection').style.display = 'block';
+            startRealTimeUpdates();
+        }
+        
+        async function initializeGame() {
+            updateStatus('Loading game data...', 'status-updating');
+            
+            try {
+                // Load existing game state
+                const { data: gameData, error: gameError } = await getUserGame(currentUser.id);
+                if (gameData && gameData.game_state) {
+                    gameState.fromJSON(gameData.game_state);
+                } else {
+                    // Initialize new game
+                    await updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
+                }
+                
+                // Load current location
+                await refreshLocationData();
+                
+                // Render initial state
+                renderGameGrid(gameState, 'gameGrid');
+                updateGameInfo(gameState);
+                
+                updateStatus('Game loaded successfully', 'status-connected');
+            } catch (err) {
+                console.error('Game initialization error:', err);
+                updateStatus('Failed to load game', 'status-disconnected');
+            }
+        }
+        
+        async function refreshLocationData() {
+            try {
+                const { data: locationData, error: locationError } = await getUserLocation(currentUser.id);
+                if (locationData) {
+                    updateLocationDisplay(locationData);
+                    
+                    // Update game state if position changed
+                    const newGridX = locationData.grid_x;
+                    const newGridY = locationData.grid_y;
+                    
+                    if (gameState.playerPosition.x !== newGridX || gameState.playerPosition.y !== newGridY) {
+                        gameState.updatePlayerPosition(newGridX, newGridY);
+                        
+                        // Save updated game state
+                        await updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
+                        
+                        // Re-render
+                        renderGameGrid(gameState, 'gameGrid');
+                        updateGameInfo(gameState);
+                    }
+                }
+            } catch (err) {
+                console.error('Location refresh error:', err);
+            }
+        }
+        
+        function updateLocationDisplay(locationData) {
+            document.getElementById('latitude').textContent = locationData.latitude.toFixed(6);
+            document.getElementById('longitude').textContent = locationData.longitude.toFixed(6);
+            document.getElementById('gridPosition').textContent = `(${locationData.grid_x}, ${locationData.grid_y})`;
+            document.getElementById('currentPosition').textContent = `(${locationData.grid_x}, ${locationData.grid_y})`;
+            
+            const lastSeen = new Date(locationData.updated_at);
+            document.getElementById('lastSeen').textContent = lastSeen.toLocaleTimeString();
+        }
+        
+        function startRealTimeUpdates() {
+            // Set up regular polling every 500ms
+            updateInterval = setInterval(async () => {
+                await refreshLocationData();
+            }, GAME_CONFIG.updateInterval);
+            
+            // Set up real-time subscriptions
+            try {
+                const locationSub = subscribeToLocationUpdates(currentUser.id, (payload) => {
+                    console.log('Location update received:', payload);
+                    if (payload.new) {
+                        updateLocationDisplay(payload.new);
+                        
+                        // Update game state
+                        const newGridX = payload.new.grid_x;
+                        const newGridY = payload.new.grid_y;
+                        
+                        if (gameState.playerPosition.x !== newGridX || gameState.playerPosition.y !== newGridY) {
+                            gameState.updatePlayerPosition(newGridX, newGridY);
+                            updateGameState(currentUser.id, gameState.toJSON(), gameState.score, gameState.level);
+                            renderGameGrid(gameState, 'gameGrid');
+                            updateGameInfo(gameState);
+                        }
+                    }
+                });
+                
+                subscriptions.push(locationSub);
+            } catch (err) {
+                console.error('Subscription setup error:', err);
+            }
+        }
+        
+        function stopRealTimeUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+            
+            subscriptions.forEach(sub => {
+                try {
+                    sub.unsubscribe();
+                } catch (err) {
+                    console.error('Unsubscribe error:', err);
+                }
+            });
+            subscriptions = [];
+        }
+        
+        function updateStatus(message, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${className}`;
+        }
+        
+        async function refreshGameData() {
+            updateStatus('Refreshing...', 'status-updating');
+            await refreshLocationData();
+            updateStatus('Game active', 'status-connected');
+        }
+        
+        async function handleSignOut() {
+            try {
+                stopRealTimeUpdates();
+                await signOut();
+                window.location.href = '../index.html';
+            } catch (err) {
+                console.error('Sign out error:', err);
+            }
+        }
+        
+        // Clean up when page unloads
+        window.addEventListener('beforeunload', function() {
+            stopRealTimeUpdates();
+        });
+    </script>
+</body>
+</html>

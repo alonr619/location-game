@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Location Game</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Sign In</h1>
+        
+        <div class="form-container">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Enter your password">
+                </div>
+                
+                <div id="errorMessage" class="error" style="display: none;"></div>
+                <div id="successMessage" class="success" style="display: none;"></div>
+                
+                <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="nav-links" style="margin-top: 1rem;">
+                <p style="text-align: center; color: #666;">
+                    Don't have an account? 
+                    <a href="signup.html">Sign up here</a>
+                </p>
+                <p style="text-align: center; margin-top: 1rem;">
+                    <a href="../index.html">← Back to home</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initSupabase();
+            
+            const form = document.getElementById('loginForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                // Clear previous messages
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+                
+                // Show loading state
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
+                
+                try {
+                    const { data, error } = await signIn(email, password);
+                    
+                    if (error) {
+                        errorDiv.textContent = error.message;
+                        errorDiv.style.display = 'block';
+                    } else if (data.user) {
+                        successDiv.textContent = 'Successfully signed in! Redirecting...';
+                        successDiv.style.display = 'block';
+                        
+                        // Redirect to home page after 1 second
+                        setTimeout(() => {
+                            window.location.href = '../index.html';
+                        }, 1000);
+                    }
+                } catch (err) {
+                    errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                    errorDiv.style.display = 'block';
+                    console.error('Login error:', err);
+                } finally {
+                    // Reset button state
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

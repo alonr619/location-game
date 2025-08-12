@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move - Location Game</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Move Controller</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 1rem;">
+            Walk around in the real world to move your character!
+        </p>
+        
+        <div id="authSection">
+            <div class="error" id="authError" style="display: none;"></div>
+            <p style="text-align: center;">
+                <a href="login.html" class="btn btn-primary">Please Login First</a>
+            </p>
+        </div>
+        
+        <div id="gameSection" style="display: none;">
+            <div id="status" class="status status-disconnected">
+                Connecting...
+            </div>
+            
+            <div class="location-info">
+                <h4>📍 Current Location</h4>
+                <div class="location-item">
+                    <span>Latitude:</span>
+                    <span id="latitude">--</span>
+                </div>
+                <div class="location-item">
+                    <span>Longitude:</span>
+                    <span id="longitude">--</span>
+                </div>
+                <div class="location-item">
+                    <span>Accuracy:</span>
+                    <span id="accuracy">--</span>
+                </div>
+                <div class="location-item">
+                    <span>Grid Position:</span>
+                    <span id="gridPosition">--</span>
+                </div>
+            </div>
+            
+            <div class="game-info">
+                <h4>🎮 Game Status</h4>
+                <div style="margin: 10px 0;">
+                    <span>Last Update: </span>
+                    <span id="lastUpdate">--</span>
+                </div>
+                <div style="margin: 10px 0;">
+                    <span>Updates Sent: </span>
+                    <span id="updateCount">0</span>
+                </div>
+            </div>
+            
+            <button id="enableLocationBtn" class="btn btn-success btn-full" style="margin: 10px 0;">
+                📍 Enable Location Tracking
+            </button>
+            
+            <button id="signOutBtn" class="btn btn-secondary btn-full">
+                Sign Out
+            </button>
+        </div>
+        
+        <div class="nav-links">
+            <a href="../index.html">← Back to home</a>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/location.js"></script>
+    
+    <script>
+        let currentUser = null;
+        let locationWatchId = null;
+        let updateCount = 0;
+        let isTracking = false;
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            initSupabase();
+            
+            // Check authentication
+            try {
+                const { user, error } = await getCurrentUser();
+                if (user) {
+                    currentUser = user;
+                    showGameSection();
+                } else {
+                    showAuthSection();
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+                showAuthSection();
+            }
+            
+            // Set up event listeners
+            document.getElementById('enableLocationBtn').addEventListener('click', toggleLocationTracking);
+            document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+        });
+        
+        function showAuthSection() {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('gameSection').style.display = 'none';
+        }
+        
+        function showGameSection() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('gameSection').style.display = 'block';
+            updateStatus('Ready to track location', 'status-connected');
+        }
+        
+        function updateStatus(message, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${className}`;
+        }
+        
+        function toggleLocationTracking() {
+            const btn = document.getElementById('enableLocationBtn');
+            
+            if (!isTracking) {
+                startLocationTracking();
+                btn.textContent = '⏹️ Stop Location Tracking';
+                btn.className = 'btn btn-secondary btn-full';
+                isTracking = true;
+            } else {
+                stopLocationTracking();
+                btn.textContent = '📍 Enable Location Tracking';
+                btn.className = 'btn btn-success btn-full';
+                isTracking = false;
+            }
+        }
+        
+        function startLocationTracking() {
+            updateStatus('Starting location tracking...', 'status-updating');
+            
+            try {
+                locationWatchId = watchLocation(async (position, error) => {
+                    if (error) {
+                        console.error('Location error:', error);
+                        updateStatus(`Location error: ${error.message}`, 'status-disconnected');
+                        return;
+                    }
+                    
+                    if (position && currentUser) {
+                        await handleLocationUpdate(position);
+                    }
+                });
+                
+                updateStatus('Location tracking active', 'status-connected');
+            } catch (err) {
+                console.error('Failed to start location tracking:', err);
+                updateStatus(`Failed to start tracking: ${err.message}`, 'status-disconnected');
+            }
+        }
+        
+        function stopLocationTracking() {
+            if (locationWatchId) {
+                navigator.geolocation.clearWatch(locationWatchId);
+                locationWatchId = null;
+            }
+            updateStatus('Location tracking stopped', 'status-disconnected');
+        }
+        
+        async function handleLocationUpdate(position) {
+            try {
+                // Update UI with current location
+                document.getElementById('latitude').textContent = position.latitude.toFixed(6);
+                document.getElementById('longitude').textContent = position.longitude.toFixed(6);
+                document.getElementById('accuracy').textContent = position.accuracy + 'm';
+                
+                // Convert to grid coordinates
+                const gridPos = coordsToGrid(position.latitude, position.longitude);
+                document.getElementById('gridPosition').textContent = `(${gridPos.x}, ${gridPos.y})`;
+                
+                // Update database
+                const { data, error } = await updateUserLocation(
+                    currentUser.id,
+                    position.latitude,
+                    position.longitude,
+                    gridPos.x,
+                    gridPos.y
+                );
+                
+                if (error) {
+                    console.error('Database update error:', error);
+                    updateStatus('Database update failed', 'status-disconnected');
+                } else {
+                    updateCount++;
+                    document.getElementById('updateCount').textContent = updateCount;
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                    updateStatus('Location tracking active', 'status-connected');
+                }
+                
+            } catch (err) {
+                console.error('Location update error:', err);
+                updateStatus('Update failed', 'status-disconnected');
+            }
+        }
+        
+        async function handleSignOut() {
+            try {
+                stopLocationTracking();
+                await signOut();
+                window.location.href = '../index.html';
+            } catch (err) {
+                console.error('Sign out error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

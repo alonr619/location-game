@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Test - Location Game</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Configuration Test</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 2rem;">
+            Test your Supabase configuration and basic functionality
+        </p>
+        
+        <div id="testResults"></div>
+        
+        <button id="runTestsBtn" class="btn btn-primary btn-full">
+            Run Configuration Tests
+        </button>
+        
+        <div class="nav-links">
+            <a href="index.html">← Back to home</a>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/location.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('runTestsBtn').addEventListener('click', runTests);
+        });
+        
+        async function runTests() {
+            const resultsContainer = document.getElementById('testResults');
+            resultsContainer.innerHTML = '<div class="status status-updating">Running tests...</div>';
+            
+            const results = [];
+            
+            // Test 1: Supabase Configuration
+            results.push(await testSupabaseConfig());
+            
+            // Test 2: Supabase Connection
+            results.push(await testSupabaseConnection());
+            
+            // Test 3: Location API
+            results.push(await testLocationAPI());
+            
+            // Test 4: Grid Conversion
+            results.push(testGridConversion());
+            
+            // Display results
+            displayResults(results);
+        }
+        
+        async function testSupabaseConfig() {
+            try {
+                const hasUrl = SUPABASE_CONFIG.url && SUPABASE_CONFIG.url !== 'YOUR_SUPABASE_URL';
+                const hasKey = SUPABASE_CONFIG.anonKey && SUPABASE_CONFIG.anonKey !== 'YOUR_SUPABASE_ANON_KEY';
+                
+                if (hasUrl && hasKey) {
+                    return { test: 'Supabase Configuration', status: 'pass', message: 'URL and API key are configured' };
+                } else {
+                    return { test: 'Supabase Configuration', status: 'fail', message: 'Please update SUPABASE_CONFIG in js/config.js' };
+                }
+            } catch (error) {
+                return { test: 'Supabase Configuration', status: 'error', message: error.message };
+            }
+        }
+        
+        async function testSupabaseConnection() {
+            try {
+                const supabase = initSupabase();
+                if (!supabase) {
+                    return { test: 'Supabase Connection', status: 'fail', message: 'Failed to initialize Supabase client' };
+                }
+                
+                // Test basic connection by checking auth
+                const { data, error } = await supabase.auth.getSession();
+                
+                if (error && error.message.includes('Invalid API key')) {
+                    return { test: 'Supabase Connection', status: 'fail', message: 'Invalid API key - check your configuration' };
+                }
+                
+                return { test: 'Supabase Connection', status: 'pass', message: 'Successfully connected to Supabase' };
+            } catch (error) {
+                return { test: 'Supabase Connection', status: 'error', message: error.message };
+            }
+        }
+        
+        async function testLocationAPI() {
+            try {
+                if (!navigator.geolocation) {
+                    return { test: 'Location API', status: 'fail', message: 'Geolocation is not supported by this browser' };
+                }
+                
+                // Test if we can access location (this will prompt user)
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        timeout: 5000,
+                        maximumAge: 60000
+                    });
+                });
+                
+                return { test: 'Location API', status: 'pass', message: `Location access granted (±${position.coords.accuracy}m accuracy)` };
+            } catch (error) {
+                if (error.code === 1) {
+                    return { test: 'Location API', status: 'fail', message: 'Location access denied by user' };
+                } else if (error.code === 2) {
+                    return { test: 'Location API', status: 'fail', message: 'Location not available' };
+                } else if (error.code === 3) {
+                    return { test: 'Location API', status: 'fail', message: 'Location request timed out' };
+                } else {
+                    return { test: 'Location API', status: 'error', message: error.message };
+                }
+            }
+        }
+        
+        function testGridConversion() {
+            try {
+                // Test with sample coordinates
+                const testLat = 37.7749;
+                const testLng = -122.4194;
+                
+                const gridPos = coordsToGrid(testLat, testLng);
+                
+                if (gridPos && typeof gridPos.x === 'number' && typeof gridPos.y === 'number' && 
+                    gridPos.x >= 0 && gridPos.x <= 4 && gridPos.y >= 0 && gridPos.y <= 4) {
+                    return { test: 'Grid Conversion', status: 'pass', message: `Test coordinates map to grid (${gridPos.x}, ${gridPos.y})` };
+                } else {
+                    return { test: 'Grid Conversion', status: 'fail', message: 'Grid conversion returned invalid coordinates' };
+                }
+            } catch (error) {
+                return { test: 'Grid Conversion', status: 'error', message: error.message };
+            }
+        }
+        
+        function displayResults(results) {
+            const resultsContainer = document.getElementById('testResults');
+            let html = '';
+            
+            results.forEach(result => {
+                const statusClass = result.status === 'pass' ? 'success' : 'error';
+                const icon = result.status === 'pass' ? '✅' : '❌';
+                
+                html += `
+                    <div class="${statusClass}" style="margin: 10px 0;">
+                        <strong>${icon} ${result.test}</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+            });
+            
+            const passCount = results.filter(r => r.status === 'pass').length;
+            const totalTests = results.length;
+            
+            html += `
+                <div class="status ${passCount === totalTests ? 'status-connected' : 'status-disconnected'}" style="margin-top: 20px;">
+                    <strong>Test Results: ${passCount}/${totalTests} tests passed</strong>
+                </div>
+            `;
+            
+            if (passCount === totalTests) {
+                html += `
+                    <div class="success" style="margin-top: 10px;">
+                        🎉 All tests passed! Your configuration is ready.
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="error" style="margin-top: 10px;">
+                        ⚠️ Some tests failed. Please check the configuration and try again.
+                    </div>
+                `;
+            }
+            
+            resultsContainer.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

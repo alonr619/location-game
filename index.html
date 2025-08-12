@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Game</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 Location Game</h1>
+        <p style="text-align: center; margin-bottom: 2rem; color: #666;">
+            Move around in the real world to control your character in the virtual 5x5 grid!
+        </p>
+        
+        <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 1rem;">
+            <h3 style="color: #3498db; margin-bottom: 1rem;">📱 Mobile Device</h3>
+            <p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">
+                Use your phone to track movement and update your position
+            </p>
+            <a href="move.html" class="btn btn-primary btn-full">Go to Move Page</a>
+        </div>
+        
+        <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
+            <h3 style="color: #27ae60; margin-bottom: 1rem;">💻 Desktop/Computer</h3>
+            <p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">
+                View the game state and see your character move in real-time
+            </p>
+            <a href="game.html" class="btn btn-success btn-full">Go to Game Page</a>
+        </div>
+        
+        <div class="nav-links">
+            <a href="login.html" class="btn btn-primary">Login</a>
+            <a href="signup.html" class="btn btn-secondary">Sign Up</a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+            <h4 style="color: #2c3e50; margin-bottom: 0.5rem;">How it works:</h4>
+            <ol style="text-align: left; color: #666; font-size: 0.9rem;">
+                <li>Create an account and log in</li>
+                <li>Use your mobile device to visit the Move page</li>
+                <li>Allow location access to track your real-world movement</li>
+                <li>Use a computer to visit the Game page and watch your character move</li>
+                <li>Your real-world position is mapped to a 5x5 virtual grid</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    
+    <script>
+        // Initialize Supabase when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initSupabase();
+            
+            // Check if user is already logged in
+            getCurrentUser().then(({ user, error }) => {
+                if (user) {
+                    console.log('User is logged in:', user.email);
+                } else {
+                    console.log('No user logged in');
+                }
+            }).catch(err => {
+                console.error('Error checking user status:', err);
+            });
+        });
+    </script>
+</body>
+</html>

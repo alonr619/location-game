@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Location Game</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📝 Create Account</h1>
+        
+        <div class="form-container">
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Create a password (min 6 characters)" minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required 
+                           placeholder="Confirm your password">
+                </div>
+                
+                <div id="errorMessage" class="error" style="display: none;"></div>
+                <div id="successMessage" class="success" style="display: none;"></div>
+                
+                <button type="submit" class="btn btn-primary btn-full" id="signupBtn">
+                    Create Account
+                </button>
+            </form>
+            
+            <div class="nav-links" style="margin-top: 1rem;">
+                <p style="text-align: center; color: #666;">
+                    Already have an account? 
+                    <a href="login.html">Sign in here</a>
+                </p>
+                <p style="text-align: center; margin-top: 1rem;">
+                    <a href="../index.html">← Back to home</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Our scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initSupabase();
+            
+            const form = document.getElementById('signupForm');
+            const signupBtn = document.getElementById('signupBtn');
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                // Clear previous messages
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+                
+                // Validate passwords match
+                if (password !== confirmPassword) {
+                    errorDiv.textContent = 'Passwords do not match';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Validate password length
+                if (password.length < 6) {
+                    errorDiv.textContent = 'Password must be at least 6 characters long';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Show loading state
+                signupBtn.disabled = true;
+                signupBtn.innerHTML = '<span class="loading"></span> Creating account...';
+                
+                try {
+                    const { data, error } = await signUp(email, password);
+                    
+                    if (error) {
+                        errorDiv.textContent = error.message;
+                        errorDiv.style.display = 'block';
+                    } else {
+                        successDiv.textContent = 'Account created successfully! Please check your email to verify your account, then sign in.';
+                        successDiv.style.display = 'block';
+                        
+                        // Clear the form
+                        form.reset();
+                        
+                        // Redirect to login page after 3 seconds
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 3000);
+                    }
+                } catch (err) {
+                    errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                    errorDiv.style.display = 'block';
+                    console.error('Signup error:', err);
+                } finally {
+                    // Reset button state
+                    signupBtn.disabled = false;
+                    signupBtn.textContent = 'Create Account';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

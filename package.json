@@ -1,0 +1,20 @@
+{
+  "name": "location-game",
+  "version": "1.0.0",
+  "description": "A real-world movement controlled video game",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "start": "python3 -m http.server 8000"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.54.0"
+  },
+  "keywords": [
+    "game",
+    "location",
+    "geolocation"
+  ],
+  "author": "",
+  "license": "ISC"
+}
